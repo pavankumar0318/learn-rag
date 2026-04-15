@@ -1,0 +1,7 @@
+streamlit
+pdfminer.six
+langchain-openai
+langchain-community
+langchain-classic
+httpx
+chromadb
