@@ -1,40 +1,45 @@
+import os
 import tempfile
 
 from langchain_community.document_loaders import PyPDFLoader
-from pdfminer.high_level import extract_text
-from langchain_classic.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from RAGService import RAGService
-import os
 
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
+CHUNK_SIZE    = 500
+CHUNK_OVERLAP = 50
 
 
 class PDFEmbedService:
-    def __init__(self, upload_dir="./uploaded_pdfs"):
-        self.upload_dir = upload_dir
+    def __init__(self, upload_dir: str = "./uploaded_pdfs"):
+        self.upload_dir  = upload_dir
         os.makedirs(self.upload_dir, exist_ok=True)
         self.rag_service = RAGService()
 
-    def save_and_embed(self, file_name, file_bytes):
-        # Write bytes to a temp file so PyPDFLoader can read it
+    def save_and_embed(self, file_name: str, file_bytes: bytes) -> None:
+        """
+        Write PDF bytes to a temp file, load with PyPDFLoader (preserves page
+        metadata), chunk with RecursiveCharacterTextSplitter, then append to
+        the shared Chroma index.
+        """
+        # Write to temp file — PyPDFLoader requires a real path
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(file_bytes)
-            tmp_path = tmp.name
+            tmp_path = tmp.namex
 
-        # Load with PyPDFLoader — this auto-attaches page numbers in metadata
-        loader = PyPDFLoader(tmp_path)
-        pages = loader.load()  # each page is a Document with metadata
+        try:
+            loader = PyPDFLoader(tmp_path)
+            pages  = loader.load()
 
-        # Attach the real filename to each page's metadata
-        for page in pages:
-            page.metadata["source"] = file_name  # ✅ override tmp path with real name
+            # Override tmp path with the real filename in metadata
+            for page in pages:
+                page.metadata["source"] = file_name
 
-        # Split into chunks, metadata is preserved automatically
-        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        chunks = splitter.split_documents(pages)  # ✅ use split_documents, not split_text
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=CHUNK_SIZE,
+                chunk_overlap=CHUNK_OVERLAP,
+            )
+            chunks = splitter.split_documents(pages)
+        finally:
+            os.unlink(tmp_path)  # always clean up
 
-        os.unlink(tmp_path)  # clean up temp file
-        # return chunks
         self.rag_service.embed_and_store(chunks)
-        # return temp_path
