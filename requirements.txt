@@ -1,7 +1,13 @@
 streamlit
 pdfminer.six
+langchain
 langchain-openai
 langchain-community
 langchain-classic
+langchain-chroma
+langchain-ollama
 httpx
 chromadb
+fastapi[all]
+python-dotenv
+regex
